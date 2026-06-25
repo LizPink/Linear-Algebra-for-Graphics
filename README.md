@@ -35,8 +35,8 @@ Each chapter follows the same structure:
 
 1. Graphics motivation
 2. Mathematical definition
-3. Core proposition or theorem
-4. Concrete numerical example
+3. Concrete numerical example
+4. Core proposition or theorem
 5. Proof sketch
 6. NumPy implementation
 7. Visualization

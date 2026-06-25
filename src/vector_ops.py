@@ -19,3 +19,13 @@ def normalize(v: np.ndarray) -> np.ndarray:
 def distance(p1: np.ndarray, p2: np.ndarray) -> float:
     """Return the Euclidean distance between two points."""
     return vector_length(p2 - p1)
+
+
+def local_point_to_world(p_local: np.ndarray, origin_world: np.ndarray, basis: np.ndarray,) -> np.ndarray:
+    """Convert a point from local space to world space."""
+    return origin_world + basis @ p_local
+
+
+def local_vector_to_world(v_local: np.ndarray, basis: np.ndarray,) -> np.ndarray:
+    """Convert a vector from local space to world space."""
+    return basis @ v_local
