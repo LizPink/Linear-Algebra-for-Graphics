@@ -832,18 +832,45 @@ def cross_product(u, v):
     return np.cross(u, v)
 
 
-def triangle_normal(p0, p1, p2):
-    """Compute the unit normal of a triangle from three 3D points."""
+
+def triangle_raw_normal(p0, p1, p2):
+    """Compute the unnormalized normal of a 3D triangle."""
     p0 = np.asarray(p0, dtype=float)
     p1 = np.asarray(p1, dtype=float)
     p2 = np.asarray(p2, dtype=float)
 
     if p0.shape != (3,) or p1.shape != (3,) or p2.shape != (3,):
-        raise ValueError("triangle_normal expects three 3D points with shape (3,).")
+        raise ValueError("triangle_raw_normal expects three 3D points with shape (3,).")
 
     e1 = p1 - p0
     e2 = p2 - p0
 
-    n = cross_product(e1, e2)
+    return np.cross(e1, e2)
 
-    return normalize(n)
+
+def triangle_normal(p0, p1, p2, atol=1e-9):
+    """Compute the unit normal of a 3D triangle."""
+    n_raw = triangle_raw_normal(p0, p1, p2)
+    length = np.linalg.norm(n_raw)
+
+    if np.isclose(length, 0.0, atol=atol):
+        raise ValueError("Cannot compute a normal for a degenerate triangle.")
+
+    return n_raw / length
+
+
+def triangle_area(p0, p1, p2):
+    """Compute the area of a 3D triangle."""
+    n_raw = triangle_raw_normal(p0, p1, p2)
+
+    return 0.5 * np.linalg.norm(n_raw)
+
+
+def is_degenerate_triangle(p0, p1, p2, atol=1e-9):
+    """Check whether a 3D triangle is degenerate."""
+    return np.isclose(triangle_area(p0, p1, p2), 0.0, atol=atol)
+
+
+def is_triangle_normal_valid(p0, p1, p2, atol=1e-9):
+    """Check whether a 3D triangle has a valid normal."""
+    return not is_degenerate_triangle(p0, p1, p2, atol=atol)
