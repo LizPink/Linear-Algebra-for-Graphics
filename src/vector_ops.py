@@ -821,26 +821,41 @@ def project_point_to_ground(p, ground_point, ground_normal):
     return closest_point_on_plane(p, ground_point, ground_normal)
 
 
+# ---------------------------------------------------------------------
+# Chapter 03: Cross Product, Orientation, and Surface Normals
+# ---------------------------------------------------------------------
+def _as_vec3(x, name="vector"):
+    """Convert input to a 3D float NumPy vector."""
+    x = np.asarray(x, dtype=float)
+
+    if x.shape != (3,):
+        raise ValueError(f"{name} must have shape (3,), got {x.shape}.")
+
+    return x
+
 def cross_product(u, v):
     """Compute the cross product of two 3D vectors."""
-    u = np.asarray(u, dtype=float)
-    v = np.asarray(v, dtype=float)
-
-    if u.shape != (3,) or v.shape != (3,):
-        raise ValueError("cross_product expects two 3D vectors with shape (3,).")
+    u = _as_vec3(u, "u")
+    v = _as_vec3(v, "v")
 
     return np.cross(u, v)
 
 
+def cross_magnitude(u, v):
+    """Compute the magnitude of the cross product."""
+    return np.linalg.norm(cross_product(u, v))
+
+
+def parallelogram_area(u, v):
+    """Compute the area of the parallelogram spanned by u and v."""
+    return cross_magnitude(u, v)
+
 
 def triangle_raw_normal(p0, p1, p2):
-    """Compute the unnormalized normal of a 3D triangle."""
-    p0 = np.asarray(p0, dtype=float)
-    p1 = np.asarray(p1, dtype=float)
-    p2 = np.asarray(p2, dtype=float)
-
-    if p0.shape != (3,) or p1.shape != (3,) or p2.shape != (3,):
-        raise ValueError("triangle_raw_normal expects three 3D points with shape (3,).")
+    """Compute the raw normal of a triangle."""
+    p0 = _as_vec3(p0, "p0")
+    p1 = _as_vec3(p1, "p1")
+    p2 = _as_vec3(p2, "p2")
 
     e1 = p1 - p0
     e2 = p2 - p0
@@ -848,29 +863,118 @@ def triangle_raw_normal(p0, p1, p2):
     return np.cross(e1, e2)
 
 
+def is_degenerate_triangle(p0, p1, p2, atol=1e-9):
+    """Return True if the triangle is degenerate."""
+    n_raw = triangle_raw_normal(p0, p1, p2)
+    area_twice = np.linalg.norm(n_raw)
+
+    return np.isclose(area_twice, 0.0, atol=atol)
+
+
 def triangle_normal(p0, p1, p2, atol=1e-9):
-    """Compute the unit normal of a 3D triangle."""
+    """Compute the unit normal of a triangle."""
     n_raw = triangle_raw_normal(p0, p1, p2)
     length = np.linalg.norm(n_raw)
 
     if np.isclose(length, 0.0, atol=atol):
-        raise ValueError("Cannot compute a normal for a degenerate triangle.")
+        raise ValueError("Degenerate triangle: normal is undefined.")
 
     return n_raw / length
 
 
 def triangle_area(p0, p1, p2):
-    """Compute the area of a 3D triangle."""
+    """Compute the area of a triangle."""
     n_raw = triangle_raw_normal(p0, p1, p2)
 
     return 0.5 * np.linalg.norm(n_raw)
 
 
-def is_degenerate_triangle(p0, p1, p2, atol=1e-9):
-    """Check whether a 3D triangle is degenerate."""
-    return np.isclose(triangle_area(p0, p1, p2), 0.0, atol=atol)
-
-
 def is_triangle_normal_valid(p0, p1, p2, atol=1e-9):
-    """Check whether a 3D triangle has a valid normal."""
+    """Return True if the triangle has a valid normal."""
     return not is_degenerate_triangle(p0, p1, p2, atol=atol)
+
+
+def is_cross_product_orthogonal(u, v, atol=1e-9):
+    """Check whether u x v is orthogonal to both u and v."""
+    u = _as_vec3(u, "u")
+    v = _as_vec3(v, "v")
+
+    w = np.cross(u, v)
+
+    return (
+        np.isclose(w @ u, 0.0, atol=atol)
+        and np.isclose(w @ v, 0.0, atol=atol)
+    )
+
+
+def normal_from_edges(e1, e2, normalize_result=True, atol=1e-9):
+    """Compute a normal from two triangle edges."""
+    e1 = _as_vec3(e1, "e1")
+    e2 = _as_vec3(e2, "e2")
+
+    n_raw = np.cross(e1, e2)
+
+    if not normalize_result:
+        return n_raw
+
+    length = np.linalg.norm(n_raw)
+
+    if np.isclose(length, 0.0, atol=atol):
+        raise ValueError("Edges are parallel or degenerate: normal is undefined.")
+
+    return n_raw / length
+
+
+def are_opposite_normals(n1, n2, atol=1e-9):
+    """Check whether two normals point in opposite directions."""
+    n1 = normalize(n1, atol=atol)
+    n2 = normalize(n2, atol=atol)
+
+    return np.allclose(n1, -n2, atol=atol)
+
+
+def does_winding_flip_normal(p0, p1, p2, atol=1e-9):
+    """Check whether swapping p1 and p2 flips the triangle normal."""
+    n = triangle_normal(p0, p1, p2, atol=atol)
+    n_flipped = triangle_normal(p0, p2, p1, atol=atol)
+
+    return are_opposite_normals(n, n_flipped, atol=atol)
+
+
+def triangle_centroid(p0, p1, p2):
+    """Compute the centroid of a triangle."""
+    p0 = _as_vec3(p0, "p0")
+    p1 = _as_vec3(p1, "p1")
+    p2 = _as_vec3(p2, "p2")
+
+    return (p0 + p1 + p2) / 3.0
+
+
+def view_direction(surface_point, camera_position, atol=1e-9):
+    """Compute the unit direction from a surface point to a camera."""
+    surface_point = _as_vec3(surface_point, "surface_point")
+    camera_position = _as_vec3(camera_position, "camera_position")
+
+    return normalize(camera_position - surface_point, atol=atol)
+
+
+def facing_score(normal, view_dir, atol=1e-9):
+    """Compute the alignment between a normal and a view direction."""
+    normal = normalize(normal, atol=atol)
+    view_dir = normalize(view_dir, atol=atol)
+
+    return normal @ view_dir
+
+
+def is_front_facing(p0, p1, p2, camera_position, atol=1e-9):
+    """Return True if the triangle is front-facing under the current convention."""
+    n = triangle_normal(p0, p1, p2, atol=atol)
+    p_surface = triangle_centroid(p0, p1, p2)
+    v = view_direction(p_surface, camera_position, atol=atol)
+
+    return facing_score(n, v, atol=atol) > 0.0
+
+
+def is_back_facing(p0, p1, p2, camera_position, atol=1e-9):
+    """Return True if the triangle is back-facing under the current convention."""
+    return not is_front_facing(p0, p1, p2, camera_position, atol=atol)
